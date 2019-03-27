@@ -555,7 +555,7 @@ void TrafficIndex::getTrafficDataFromServer(const char* pszCityCode,time_t nCurr
     }
     
     char szUser_pwd[128] = { 0 };
-    string strPassword = "TTI-Calc";
+    string strPassword = "your password";
     sprintf(szUser_pwd, "%sDLR%ld", strPassword.c_str(), nCurrentTime);
     
     char szTime[100] = {0};
