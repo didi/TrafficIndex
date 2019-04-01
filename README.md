@@ -63,10 +63,10 @@ nohup ./TrafficIndex &
 
 Welcome to contribute by creating issues or sending pull requests. See [Contributing Guide](CONTRIBUTING.md) for guidelines.
 
-# Who is using VirtualAPK?
+# Who is using TTI?
 
 <img src="didi.png" width="78px" align="center" alt="滴滴出行"/> <img src="uber-china.png" width="78px" align="center" alt="Uber中国"/>
 
 # License
 
-VirtualAPK is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file.
+TTI is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file.
