@@ -30,6 +30,9 @@ Measure the accessibility of a route or area annually
 Identify and prioritize bottlenecks that cause congestion in an area
 
 # Calculation method of traffic index
+
+![TTI](method.jpg)
+
 # Required data
 
 | Feature | Detail |
