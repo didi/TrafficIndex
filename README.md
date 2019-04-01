@@ -2,8 +2,8 @@
 
 # <img src="imgs/va-logo.png" width="200px" align="center" alt="TTI"/>
 [![license](http://img.shields.io/badge/license-Apache2.0-brightgreen.svg?style=flat)](https://github.com/didichuxing/TrafficIndex/blob/master/LICENSE)
-[![Release Version](https://img.shields.io/badge/release-0.9.8-red.svg)](https://github.com/didi/VirtualAPK/releases)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/didi/VirtualAPK/pulls)
+[![Release Version](https://img.shields.io/badge/release-0.9.8-red.svg)]
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]
 
 The TTI (Travel Time Index) industry's most used evaluation index of urban 
 congestion degree is the ratio of the actual travel time and the free flow time.
