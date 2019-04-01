@@ -52,21 +52,12 @@ Start the calculation program like this
 nohup ./TrafficIndex &
 
 
-
 ## Plugin Project
-
-
-# Developer guide
-
-* API document [wiki](https://github.com/didi/VirtualAPK/wiki)
-* Sample project [PluginDemo](https://github.com/didi/VirtualAPK/tree/master/PluginDemo)
-* Read [core library source code](https://github.com/didi/VirtualAPK/tree/master/CoreLibrary)
-* Read [Release notes](RELEASE-NOTES.md)
 
 # Known issues
 
-* Notifications with custom layout are not supported in plugin.
-* Transition animations with animation resources are not supported in plugin.
+* Only supports the data format of DIDI, other data types are not supported.
+* Need to apply for open data from DIDI.
 
 # Contributing
 
