@@ -33,6 +33,8 @@ Identify and prioritize bottlenecks that cause congestion in an area
 
 ![TTI](method.jpg)
 
+![TTI](demo.jpg)
+
 # Required data
 
 | Feature | Detail |
