@@ -29,11 +29,6 @@ Detect seasonality, the impact of events and events on traffic congestion or den
 Measure the accessibility of a route or area annually
 Identify and prioritize bottlenecks that cause congestion in an area
 
-# Calculation method of traffic index
-![TTI](method.jpg)
-
-![TTI](20190401113142.jpg)
-
 # Required data
 
 | Feature | Detail |
