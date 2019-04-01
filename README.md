@@ -59,9 +59,6 @@ Finally, Get executable program TrafficIndex
 Start the calculation program like this:
 nohup ./TrafficIndex &
 
-
-## Plugin Project
-
 # Known issues
 
 * Only supports the data format of DIDI, other data types are not supported.
