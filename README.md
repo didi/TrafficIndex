@@ -65,7 +65,7 @@ Welcome to contribute by creating issues or sending pull requests. See [Contribu
 
 # Who is using VirtualAPK?
 
-<img src="imgs/didi.png" width="78px" align="center" alt="滴滴出行"/> <img src="imgs/uber-china.png" width="78px" align="center" alt="Uber中国"/>
+<img src="didi.png" width="78px" align="center" alt="滴滴出行"/> <img src="uber-china.png" width="78px" align="center" alt="Uber中国"/>
 
 # License
 
