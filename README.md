@@ -43,8 +43,14 @@ dependencies {
 ```
 In addition, you need to configure redis、mysql
 
+# Compile c++ program
+g++ -o TrafficIndex CommonTools.cpp LogUlits.cpp main.cpp md5.cpp TrafficIndex.cpp traffic_pb.pb.cc -lmysqlclient -lpq -I/usr/include/mysql -L/usr/lib64/mysql -I/usr/include -L/usr/lib64 -I/usr/local/protobuf/include -L/usr/local/protobuf/lib -I/usr/local/include/hiredis -L/usr/local/lib -I/usr/local/postgresql-9.6.6/include -L/usr/local/postgresql-9.6.6/lib -I/usr/local/leveldb -luuid -luuid -lpthread -lprotobuf -lhiredis -lcurl -lleveldb
 
-Finally, load an app and have fun!
+Finally, Get executable program TrafficIndex
+
+Start the calculation program like this
+nohup ./TrafficIndex &
+
 
 
 ## Plugin Project
