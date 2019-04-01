@@ -28,7 +28,8 @@ or abnormal road conditions may also affect the value of TTI.
 
 # Getting started
 
-## Host Project
+## GAIA Open Dataset
+With DiDi's advantages in big data and technology, the GAIA Initiative provides academic community with real-life application use cases, anonymized data and computing resources, and seeks collaboration with the academic community. The Initiative aims to advance fundamental and prospective studies in transportation research. It promotes the application of scientific achievements by strengthening ties between industry, university and research. This effort will drive scientific development in intelligent transportation systems and contribute to societal development.With DiDi's advantages in big data and technology, the GAIA Initiative provides academic community with real-life application use cases, anonymized data and computing resources, and seeks collaboration with the academic community. The Initiative aims to advance fundamental and prospective studies in transportation research. It promotes the application of scientific achievements by strengthening ties between industry, university and research. This effort will drive scientific development in intelligent transportation systems and contribute to societal development.
 
 Add a dependency in `build.gradle` in root of host project as following.
 
