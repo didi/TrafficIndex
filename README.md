@@ -35,85 +35,20 @@ Add a realtime traffic data API in `config.conf` in root of host project as foll
 
 ``` c++
 dependencies {
-    realtime_traffic_data 'http://sts.didichuxing.com/api/realtime?citycode=1'
-    roadnet 'http://sts.didichuxing.com/api/roadnet?citycode=1'
-    freeflow 'http://sts.didichuxing.com/api/freeflow?link_id=10001'
-    weight 'http://sts.didichuxing.com/api/weight?link_id=10001'
+    realtime_traffic_data 'http://sts.didichuxing.com/api/realtime?citycode=1&token=your token'
+    roadnet 'http://sts.didichuxing.com/api/roadnet?citycode=1&token=your token'
+    freeflow 'http://sts.didichuxing.com/api/freeflow?link_id=10001&token=your token'
+    weight 'http://sts.didichuxing.com/api/weight?link_id=10001&token=your token'
 }
 ```
+In addition, you need to configure redis、mysql
 
-Apply plugin in application module of `build.gradle`.
 
-```
-apply plugin: 'com.didi.virtualapk.host'
-```
+Finally, load an app and have fun!
 
-Compile VirtualAPK in application module of `build.gradle`.
-
-``` java
-compile 'com.didi.virtualapk:core:0.9.8'
-```
-
-Initialize `PluginManager` in `YourApplication::attachBaseContext()`.
-
-``` java
-@Override
-protected void attachBaseContext(Context base) {
-    super.attachBaseContext(base);
-    PluginManager.getInstance(base).init();
-}
-```
-
-Modify proguard rules to keep VirtualAPK related files.
-
-```
--keep class com.didi.virtualapk.internal.VAInstrumentation { *; }
--keep class com.didi.virtualapk.internal.PluginContentResolver { *; }
-
--dontwarn com.didi.virtualapk.**
--dontwarn android.**
--keep class android.** { *; }
-```
-
-Finally, load an APK and have fun!
-
-``` java
-String pluginPath = Environment.getExternalStorageDirectory().getAbsolutePath().concat("/Test.apk");
-File plugin = new File(pluginPath);
-PluginManager.getInstance(base).loadPlugin(plugin);
-
-// Given "com.didi.virtualapk.demo" is the package name of plugin APK, 
-// and there is an activity called `MainActivity`.
-Intent intent = new Intent();
-intent.setClassName("com.didi.virtualapk.demo", "com.didi.virtualapk.demo.MainActivity");
-startActivity(intent);
-```
 
 ## Plugin Project
 
-Add a dependency in `build.gradle` in root of plugin project as following.
-
-``` java
-dependencies {
-    classpath 'com.didi.virtualapk:gradle:0.9.8.6'
-}
-```
-
-Apply plugin in application module of `build.gradle`.
-
-```
-apply plugin: 'com.didi.virtualapk.plugin'
-```
-
-Config VirtualAPK. Remember to put following lines at the end of `build.gradle`.
-
-```
-virtualApk {
-    packageId = 0x6f             // The package id of Resources.
-    targetHost='source/host/app' // The path of application module in host project.
-    applyHostMapping = true      // [Optional] Default value is true. 
-}
-```
 
 # Developer guide
 
