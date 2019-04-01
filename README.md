@@ -10,8 +10,7 @@ The larger the value, the worse the traffic operation status, and the congestion
 level is generally positive. Related, other abnormal weather conditions (such as rain, snow, fog, etc.)
 or abnormal road conditions may also affect the value of TTI.
 
-
-# Calculation method of traffic index
+# Basic Idea
 
 the basic idea of Speed:
 If a link has two time slices, t1 and t2, and the link length is S, then the average speed v of the link is: 
@@ -19,6 +18,8 @@ v = 2·S / (t1 + t2) during the period from t1 to t2.
 
 the basic idea of TTI:
 In the same link in a time slice, tti = free flow speed / actual speed.
+
+# Calculation method of traffic index
 
 ![TTI](method.jpg)
 # Data curves of Beijing and Urumqi
