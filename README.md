@@ -31,11 +31,14 @@ or abnormal road conditions may also affect the value of TTI.
 ## GAIA Open Dataset
 With DiDi's advantages in big data and technology, the GAIA Initiative provides academic community with real-life application use cases, anonymized data and computing resources, and seeks collaboration with the academic community. The Initiative aims to advance fundamental and prospective studies in transportation research. It promotes the application of scientific achievements by strengthening ties between industry, university and research. This effort will drive scientific development in intelligent transportation systems and contribute to societal development.With DiDi's advantages in big data and technology, the GAIA Initiative provides academic community with real-life application use cases, anonymized data and computing resources, and seeks collaboration with the academic community. The Initiative aims to advance fundamental and prospective studies in transportation research. It promotes the application of scientific achievements by strengthening ties between industry, university and research. This effort will drive scientific development in intelligent transportation systems and contribute to societal development.
 
-Add a dependency in `build.gradle` in root of host project as following.
+Add a realtime traffic data API in `config.conf` in root of host project as following.
 
-``` java
+``` c++
 dependencies {
-    classpath 'com.didi.virtualapk:gradle:0.9.8.6'
+    realtime_traffic_data 'http://sts.didichuxing.com/api/realtime?citycode=1'
+    roadnet 'http://sts.didichuxing.com/api/roadnet?citycode=1'
+    freeflow 'http://sts.didichuxing.com/api/freeflow?link_id=10001'
+    weight 'http://sts.didichuxing.com/api/weight?link_id=10001'
 }
 ```
 
