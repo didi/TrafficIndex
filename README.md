@@ -47,7 +47,7 @@ g++ -o TrafficIndex CommonTools.cpp LogUlits.cpp main.cpp md5.cpp TrafficIndex.c
 
 Finally, Get executable program TrafficIndex
 
-Start the calculation program like this
+Start the calculation program like this:
 nohup ./TrafficIndex &
 
 
