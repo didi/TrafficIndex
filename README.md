@@ -13,7 +13,7 @@ or abnormal road conditions may also affect the value of TTI.
 # Basic Idea
 
 the basic idea of Speed:
-If a link has two time slices, t1 and t2, and the link length is S, then the average speed v of the link is: 
+If a link has two time slices, t1 and t2, and the link's length is S, then the average speed v of the link is: 
 v = 2·S / (t1 + t2) during the period from t1 to t2.
 
 the basic idea of TTI:
