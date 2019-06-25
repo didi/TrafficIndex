@@ -191,8 +191,6 @@ bool TrafficIndex::connectDatabase()
     m_pComputePredefineMySQL = getMySQLConn();
     m_pComputeCustomMySQL = getMySQLConn();
     m_pSubscribeMySQL = getMySQLConn();
-//    m_pAddCustomMySQL = getMySQLConn();
-//    m_pDelCustomMySQL = getMySQLConn();
     
     m_pPQWeightAndFreeflow = getPGConn();
     m_pUpdateLinkPG = getPGConn();
@@ -222,7 +220,6 @@ void TrafficIndex::getTTILinks(){
     
     if (m_strNodeType == "master") {
         int nRes = mysql_query(m_pUpdateLinkMySQL, "select obj_id,astext(geom),attibute_filter from traffic_obj_info where obj_type in (1,2);");
-//        int nRes = mysql_query(m_pUpdateLinkMySQL, "select obj_id,astext(geom) from traffic_obj_info where obj_type in (1,2) and obj_id = 2 order by obj_id asc;");
         
         if (nRes == 0) {
             MYSQL_RES* pRes = mysql_store_result(m_pUpdateLinkMySQL);
@@ -255,7 +252,6 @@ void TrafficIndex::getTTILinks(){
     
     //自定义对象
     int nRes = mysql_query(m_pUpdateLinkMySQL, "select obj_id,astext(geom),attibute_filter from traffic_obj_info where obj_type <> 1 and obj_type <> 2;");
-//    int nRes = mysql_query(m_pUpdateLinkMySQL, "select obj_id,astext(geom) from traffic_obj_info where obj_type = 4 and city = '深圳市' order by obj_id asc;");
     if (nRes == 0) {
         MYSQL_RES* pRes = mysql_store_result(m_pUpdateLinkMySQL);
         if (pRes != NULL) {
@@ -339,82 +335,11 @@ void TrafficIndex::queryELinkID(PGconn* pConn,string strWKT,vector<string>& vecE
     for(int i = 0; i < nRow;i++){
         const char* pszID = PQgetvalue(pGRes,i,0);
         const char* pszDirection = PQgetvalue(pGRes,i,1);
-        
-        string strID = pszID;
-        int nDirection = atoi(pszDirection);
-        switch (nDirection)
+
+        if (pszID == NULL || pszDirection == NULL)
         {
-            case 0:
-                strID.insert(strID.length(), "0");
-                vecELinkIDs.push_back(strID);
-                
-                strID = pszID;
-                strID.insert(strID.length(), "1");
-                vecELinkIDs.push_back(strID);
-                break;
-            case 1:
-                strID.insert(strID.length(), "0");
-                vecELinkIDs.push_back(strID);
-                
-                strID = pszID;
-                strID.insert(strID.length(), "1");
-                vecELinkIDs.push_back(strID);
-                break;
-            case 2:
-                strID.insert(strID.length(), "0");
-                vecELinkIDs.push_back(strID);
-                break;
-            case 3:
-                strID.insert(strID.length(), "1");
-                vecELinkIDs.push_back(strID);
-                break;
-            default:
-                break;
+            continue;
         }
-    }
-    
-    PQclear(pGRes);
-}
-
-void TrafficIndex::queryELinkIDs(PGconn* pConn,string &strWKB,vector<string>& vecELinkIDs,int nObjType)
-{
-    if (pConn == NULL || m_strLinkVersion == "") {
-        return;
-    }
-    
-    string strSQL = "select link_id,direction from ";
-    strSQL += m_strLinkVersion;
-    strSQL += "_link where st_intersects";
-    strSQL += "(geom,'";
-    strSQL += strWKB;
-    strSQL += "')";
-    
-    if (nObjType == 5)
-    {
-        strSQL = "select link_id,direction from ";
-        strSQL += m_strLinkVersion;
-        strSQL += "_link where st_contains(st_buffer('";
-        strSQL += strWKB;
-        strSQL += "',0.00001),geom);";
-    }
-    
-    PGresult* pGRes = PQexec(pConn, strSQL.c_str());
-    
-    if (PQresultStatus(pGRes) != PGRES_TUPLES_OK)
-    {
-        string strErr = "未获取到link数据，错误信息：";
-        strErr += PQerrorMessage(pConn);
-        m_pLogUlits->AppendMsg(strErr.c_str());
-        PQclear(pGRes);
-        return;
-    }
-    
-    int nRow = PQntuples(pGRes);
-
-    for(int i = 0; i < nRow;i++)
-    {
-        const char* pszID = PQgetvalue(pGRes,i,0);
-        const char* pszDirection = PQgetvalue(pGRes,i,1);
         
         string strID = pszID;
         int nDirection = atoi(pszDirection);
@@ -457,9 +382,6 @@ void TrafficIndex::computeLinkSetTTI(time_t nBatchTime,int nObj_id,vector<string
     
     double dfSpdFenzi = 0;
     double dfSpdFenmu = 0;
-    
-//    double dfLength_1 = 0;
-//    double dfLength_2 = 0;
     
     for (size_t i = 0; i < vecLinkSet.size(); i++){
         string strELinkID = vecLinkSet[i];
@@ -566,14 +488,10 @@ void TrafficIndex::getTrafficDataFromServer(const char* pszCityCode,time_t nCurr
     md5.update(szUser_pwd, strlen(szUser_pwd));
     string strMD5 = md5.toString();
 
-#ifdef __APPLE__
-    string strURL = "http://traffic.map.xiaojukeji.com/traffic_publish?vid=";
-#else
     pthread_mutex_lock(&m_pulish_url_mutex);
     string strURL = m_strTrafficPublicURL;
     pthread_mutex_unlock(&m_pulish_url_mutex);
     strURL += "/traffic-dlr/getData?vid=";
-#endif
     
     strURL += strMD5;
     strURL += "&citycode=";
@@ -640,7 +558,6 @@ void TrafficIndex::getTrafficDataFromServer(const char* pszCityCode,time_t nCurr
             unsigned int nLength = trafficData.flow().length_arr(i);
             
             unsigned int nSpeed = trafficData.flow().speed_without_light_arr(i);
-//            unsigned int nSpeed = trafficData.flow().speed_with_light_arr(i);
             double dfSpeed = (double)nSpeed / 10.0;
             
             if (dfSpeed == 0) {
@@ -1016,8 +933,7 @@ void TrafficIndex::convertToELinkIDs(map<string,string>& mapDirection, string st
     }
     
     string strID = strLinkID;
-    int nDirection = atoi(iter->second.c_str());
-    switch (nDirection)
+    switch (atoi(iter->second.c_str()))
     {
         case 0:
             strID.insert(strID.length(), "0");
@@ -1298,7 +1214,6 @@ int TrafficIndex::getTTIObjectCount(MYSQL* pMySQL){
     }
     
     int nRes = mysql_query(pMySQL, "select count(*) from traffic_obj_info where obj_type <> 1 and obj_type <> 2;");
-//    int nRes = mysql_query(pMySQL, "select count(*) from traffic_obj_info where obj_type = 4 and city = '深圳市'");
     
     if (nRes == 0) {
         MYSQL_RES* pRes = mysql_store_result(pMySQL);

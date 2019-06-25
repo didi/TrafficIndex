@@ -13,13 +13,6 @@
 #include <cmath>
 #include <signal.h>
 
-/*
- 高速路：00
- 快速路：01
- 主干路：02 03
- 次干路：04
- 支路：06 08 09 0a 0b
- */
 
 using namespace std;
 
@@ -104,7 +97,6 @@ public:
     
     void consumeRedis();
 private:
-    void queryELinkIDs(PGconn* pConn,string &strWKB,vector<string>& vecELinkIDs,int nObjType);
     
     void queryELinkID(PGconn* pConn,string strWKT,vector<string>& vecELinkIDs,string strFilter);
         
@@ -168,7 +160,6 @@ private:
     map<int,vector<string> >m_mapPredefineObjList;
     string m_strLinkVersion;
     string m_strWeightAndFreeflowVersion;
-    map<string,vector<double> >m_mapWeightAndFreeflow;
     
     map<int,vector<string> >m_mapCustomObjList;
     pthread_mutex_t m_custom_obj_mutex;
