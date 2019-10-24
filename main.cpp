@@ -19,17 +19,13 @@ pthread_mutex_t g_log_mutex;
 //路况锁
 pthread_mutex_t g_traffic_data_mutex;
 //更新obj_list锁
-pthread_mutex_t g_predefine_obj_mutex;
+pthread_mutex_t g_tti_obj_mutex;
 
 pthread_mutex_t g_update_weight_freeflow_mutex;
 
-pthread_mutex_t g_pulish_url_mutex;
-
-pthread_mutex_t g_custom_obj_mutex;
-
 pthread_mutex_t g_crash_mutex;
 
-void *computePredefineTTIThread(void *pParam){
+void *computeTTIThread(void *pParam){
     TrafficIndex* pTrafficIndex = (TrafficIndex*)pParam;
     while (true){
         time_t nCurrentTime = CommonTools::getCurrentTime();
@@ -44,46 +40,13 @@ void *computePredefineTTIThread(void *pParam){
         
         string strBatchTime = CommonTools::unix2Standard(nCurrentTime);
         
-        pTrafficIndex->getLogUlits()->AppendMsg("开始计算predefine_TTI");
-        pTrafficIndex->computeTTI(strBatchTime,1);
-        pTrafficIndex->getLogUlits()->AppendMsg("结束计算predefine_TTI");
+        LogUlits::appendMsg("开始计算TTI");
+        pTrafficIndex->computeTTI(nCurrentTime);
+        LogUlits::appendMsg("结束计算TTI");
         
         sleep(1);
     }
     
-    return NULL;
-}
-
-void *computeCustomTTIThread(void *pParam){
-    TrafficIndex* pTrafficIndex = (TrafficIndex*)pParam;
-    while (true){
-        time_t nCurrentTime = CommonTools::getCurrentTime();
-        
-        bool bIsLaunch = CommonTools::isLaunchProcessEx(nCurrentTime,5);
-        
-        if (!bIsLaunch){
-            continue;
-        }
-        
-        nCurrentTime -= 300;
-        
-        string strBatchTime = CommonTools::unix2Standard(nCurrentTime);
-        
-        pTrafficIndex->getLogUlits()->AppendMsg("开始计算custom_TTI");
-        pTrafficIndex->computeTTI(strBatchTime,2);
-        pTrafficIndex->getLogUlits()->AppendMsg("结束计算custom_TTI");
-        
-        sleep(1);
-    }
-
-    return NULL;
-}
-
-void *getTrafficChildThread(void *pParam){
-    ThreadParameter threadPara = *(ThreadParameter*)pParam;
-
-    threadPara.pTrafficIndex->getTrafficDataFromServer(threadPara.pszCityCode,threadPara.nCurrentTime);
-
     return NULL;
 }
 
@@ -98,19 +61,22 @@ void *getRealtimeTrafficThread(void *pParam){
         int nMinute = CommonTools::getMinute(nCurrentTime);
         int nSecond = CommonTools::getSecond(nCurrentTime);
         
-        if (nMinute % 2 == 0 && nSecond == 0) {
+        if ((nMinute - 1) % 2 == 0 && nSecond == 0) {
             ThreadParameter* pThreadParaArray = new ThreadParameter[vecProvince.size()];
             pthread_t* pThreadArray = new pthread_t[vecProvince.size()];
             
             for (size_t i = 0 ; i < vecProvince.size(); i++){
                 ThreadParameter childPara;
                 childPara.nCurrentTime = nCurrentTime;
-                childPara.pszCityCode = vecProvince[i].c_str();
+                childPara.strCityCode = vecProvince[i];
                 childPara.pTrafficIndex = pTrafficIndex;
+                childPara.strTrafficPublicURL = pTrafficIndex->getTrafficPublicURL();
+                childPara.pMutex = &g_traffic_data_mutex;
+                childPara.pRealtimeTrafficDataCache = pTrafficIndex->getRealtimeTrafficDataCache();
                 
                 pThreadParaArray[i] = childPara;
                 pthread_t pth;
-                pthread_create(&pth, NULL, getTrafficChildThread,(void*)&pThreadParaArray[i]);
+                pthread_create(&pth, NULL, TrafficIndex::getProvinceRealtimeTrafficThread,(void*)&pThreadParaArray[i]);
                 pThreadArray[i] = pth;
             }
             
@@ -252,42 +218,23 @@ void catchCrash(int nSignal){
     pthread_mutex_unlock(&g_crash_mutex);
 }
 
-int main(int argc, const char * argv[])
-{
+int main(int argc, const char * argv[]){
     string strUUID = CommonTools::getUUID();
     
     pthread_mutex_init(&g_log_mutex, NULL);
     pthread_mutex_init(&g_traffic_data_mutex, NULL);
-    pthread_mutex_init(&g_predefine_obj_mutex, NULL);
+    pthread_mutex_init(&g_tti_obj_mutex, NULL);
     pthread_mutex_init(&g_update_weight_freeflow_mutex, NULL);
-    pthread_mutex_init(&g_pulish_url_mutex, NULL);
-    pthread_mutex_init(&g_custom_obj_mutex, NULL);
     pthread_mutex_init(&g_crash_mutex, NULL);
     
     curl_global_init(CURL_GLOBAL_ALL);
-    
-    LogUlits* pLogUlits = new LogUlits(g_log_mutex,strUUID);
     
     string strCurrentPath = CommonTools::getCurrentPath();
     
     string strLogPath = strCurrentPath;
     strLogPath += "/TrafficIndex.log";
     
-    if (!pLogUlits->InitLog(strLogPath))
-    {
-        printf("%s 创建日志文件失败，程序退出\n",strUUID.c_str());
-        delete pLogUlits;
-        pthread_mutex_destroy(&g_log_mutex);
-        pthread_mutex_destroy(&g_traffic_data_mutex);
-        pthread_mutex_destroy(&g_predefine_obj_mutex);
-        pthread_mutex_destroy(&g_update_weight_freeflow_mutex);
-        pthread_mutex_destroy(&g_pulish_url_mutex);
-        pthread_mutex_destroy(&g_custom_obj_mutex);
-        pthread_mutex_destroy(&g_crash_mutex);
-        curl_global_cleanup();
-        google::protobuf::ShutdownProtobufLibrary();
-        return 1;
-    }
+    LogUlits::initLog(strLogPath.c_str(),&g_log_mutex,strUUID.c_str());
     
     DBInfo mySQLInfo;
     DBInfo pgInfo;
@@ -297,25 +244,20 @@ int main(int argc, const char * argv[])
     vector<string> vecProvince;
     string strConfPath = strCurrentPath;
     string strNodeType;
-    if (!CommonTools::parseConf(strConfPath, mySQLInfo, pgInfo,redisInfo,strTrafficPublicURL,vecProvince,strNodeType))
-    {
-        pLogUlits->AppendMsg("解析配置文件失败");
-        delete pLogUlits;
+    if (!CommonTools::parseConf(strConfPath, mySQLInfo, pgInfo,redisInfo,strTrafficPublicURL,vecProvince,strNodeType)){
+        LogUlits::appendMsg("解析配置文件失败");
         pthread_mutex_destroy(&g_log_mutex);
         pthread_mutex_destroy(&g_traffic_data_mutex);
-        pthread_mutex_destroy(&g_predefine_obj_mutex);
+        pthread_mutex_destroy(&g_tti_obj_mutex);
         pthread_mutex_destroy(&g_update_weight_freeflow_mutex);
-        pthread_mutex_destroy(&g_pulish_url_mutex);
-        pthread_mutex_destroy(&g_custom_obj_mutex);
         pthread_mutex_destroy(&g_crash_mutex);
         curl_global_cleanup();
         google::protobuf::ShutdownProtobufLibrary();
         return 1;
     }
     
-    pLogUlits->AppendMsg("TTI计算服务启动");
+    LogUlits::appendMsg("TTI计算服务启动");
     
-    // 捕捉崩溃日志
     signal(SIGSEGV,catchCrash);
     signal(SIGFPE,catchCrash);
     signal(SIGABRT,catchCrash);
@@ -327,25 +269,16 @@ int main(int argc, const char * argv[])
     pTrafficIndex->setMySQLInfo(mySQLInfo);
     pTrafficIndex->setPGInfo(pgInfo);
     pTrafficIndex->setRedisInfo(redisInfo);
-    pTrafficIndex->setLogUlits(pLogUlits);
     pTrafficIndex->setTrafficDataMutex(g_traffic_data_mutex);
-    pTrafficIndex->setPredefineObjMutex(g_predefine_obj_mutex);
+    pTrafficIndex->set_tti_obj_mutex(g_tti_obj_mutex);
     pTrafficIndex->setUpdateWeightAndFreeflowMutex(g_update_weight_freeflow_mutex);
-    pTrafficIndex->setPublishURLMutex(g_pulish_url_mutex);
-    pTrafficIndex->setCustomObjMutex(g_custom_obj_mutex);
-    pTrafficIndex->setNodeType(strNodeType);
-    pTrafficIndex->setHostName(strUUID);
     
-    if (!pTrafficIndex->connectDatabase())
-    {
-        delete pLogUlits;
+    if (!pTrafficIndex->connectDatabase()){
         delete pTrafficIndex;
         pthread_mutex_destroy(&g_log_mutex);
         pthread_mutex_destroy(&g_traffic_data_mutex);
-        pthread_mutex_destroy(&g_predefine_obj_mutex);
+        pthread_mutex_destroy(&g_tti_obj_mutex);
         pthread_mutex_destroy(&g_update_weight_freeflow_mutex);
-        pthread_mutex_destroy(&g_pulish_url_mutex);
-        pthread_mutex_destroy(&g_custom_obj_mutex);
         pthread_mutex_destroy(&g_crash_mutex);
         curl_global_cleanup();
         google::protobuf::ShutdownProtobufLibrary();
@@ -353,14 +286,11 @@ int main(int argc, const char * argv[])
     }
     
     if (!pTrafficIndex->initJob()) {
-        delete pLogUlits;
         delete pTrafficIndex;
         pthread_mutex_destroy(&g_log_mutex);
         pthread_mutex_destroy(&g_traffic_data_mutex);
-        pthread_mutex_destroy(&g_predefine_obj_mutex);
+        pthread_mutex_destroy(&g_tti_obj_mutex);
         pthread_mutex_destroy(&g_update_weight_freeflow_mutex);
-        pthread_mutex_destroy(&g_pulish_url_mutex);
-        pthread_mutex_destroy(&g_custom_obj_mutex);
         pthread_mutex_destroy(&g_crash_mutex);
         curl_global_cleanup();
         google::protobuf::ShutdownProtobufLibrary();
@@ -371,10 +301,7 @@ int main(int argc, const char * argv[])
     pthread_create(&trafficThread, NULL, getRealtimeTrafficThread, (void*)pTrafficIndex);
 
     pthread_t prettiThread;
-    pthread_create(&prettiThread, NULL, computePredefineTTIThread, (void*)pTrafficIndex);
-
-    pthread_t customttiThread;
-    pthread_create(&customttiThread, NULL, computeCustomTTIThread, (void*)pTrafficIndex);
+    pthread_create(&prettiThread, NULL, computeTTIThread, (void*)pTrafficIndex);
 
     pthread_t predefineObjThread;
     pthread_create(&predefineObjThread, NULL, updateLinkThread, (void*)pTrafficIndex);
@@ -393,19 +320,15 @@ int main(int argc, const char * argv[])
 
     pthread_join(trafficThread, NULL);
     pthread_join(prettiThread, NULL);
-    pthread_join(customttiThread, NULL);
     pthread_join(predefineObjThread, NULL);
     pthread_join(updateRefThread, NULL);
     pthread_join(mqThread, NULL);
     
-    delete pLogUlits;
     delete pTrafficIndex;
     pthread_mutex_destroy(&g_log_mutex);
     pthread_mutex_destroy(&g_traffic_data_mutex);
-    pthread_mutex_destroy(&g_predefine_obj_mutex);
+    pthread_mutex_destroy(&g_tti_obj_mutex);
     pthread_mutex_destroy(&g_update_weight_freeflow_mutex);
-    pthread_mutex_destroy(&g_pulish_url_mutex);
-    pthread_mutex_destroy(&g_custom_obj_mutex);
     pthread_mutex_destroy(&g_crash_mutex);
     curl_global_cleanup();
     google::protobuf::ShutdownProtobufLibrary();

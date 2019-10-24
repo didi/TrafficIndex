@@ -18,8 +18,7 @@ CommonTools::~CommonTools()
     
 }
 
-string CommonTools::getCurrentPath()
-{
+string CommonTools::getCurrentPath(){
     char *szPath = getcwd(NULL, 0);
     
     string strCurrentPath = szPath;
@@ -28,8 +27,7 @@ string CommonTools::getCurrentPath()
     return strCurrentPath;
 }
 
-string CommonTools::getUUID()
-{
+string CommonTools::getUUID(){
     uuid_t uuid_obj;
     
     char szUUID[36];
@@ -42,8 +40,7 @@ string CommonTools::getUUID()
     return strUUID;
 }
 
-string CommonTools::unix2Standard(time_t nUnix)
-{
+string CommonTools::unix2Standard(time_t nUnix){
     struct tm newtime;
     localtime_r(&nUnix, &newtime);
     
@@ -53,11 +50,9 @@ string CommonTools::unix2Standard(time_t nUnix)
     string strTime = szTime;
     return strTime;
 }
-void CommonTools::split(const std::string &strSrc, const std::string &strPattern,std::vector<std::string>& resVec)
-{
+void CommonTools::split(const std::string &strSrc, const std::string &strPattern,std::vector<std::string>& resVec){
     resVec.clear();
-    if (strSrc == "" )
-    {
+    if (strSrc == "" ){
         return;
     }
     std::string strs = strSrc + strPattern;
@@ -65,8 +60,7 @@ void CommonTools::split(const std::string &strSrc, const std::string &strPattern
     size_t nPos = strs.find(strPattern);
     size_t nSize = strs.size();
     
-    while (nPos != std::string::npos)
-    {
+    while (nPos != std::string::npos){
         std::string x = strs.substr(0, nPos);
         resVec.push_back(x);
         strs = strs.substr(nPos + 1, nSize);
@@ -75,8 +69,7 @@ void CommonTools::split(const std::string &strSrc, const std::string &strPattern
 }
 
 
-bool CommonTools::parseConf(string strConfPath, DBInfo &mySQLInfo, DBInfo &pgInfo,DBInfo& redisInfo,string& strTrafficPublicURL,vector<string>& vecProvince,string& strNodeType)
-{
+bool CommonTools::parseConf(string strConfPath, DBInfo &mySQLInfo, DBInfo &pgInfo,DBInfo& redisInfo,string& strTrafficPublicURL,vector<string>& vecProvince,string& strNodeType){
     string strConfigPath = strConfPath;
     
     strConfigPath += "/config.conf";
@@ -84,16 +77,14 @@ bool CommonTools::parseConf(string strConfPath, DBInfo &mySQLInfo, DBInfo &pgInf
     std::ifstream configFile;
     configFile.open(strConfigPath.c_str());
     
-    if (!configFile.is_open())
-    {
+    if (!configFile.is_open()){
         return false;
     }
     
     vector<string> vecRecord;
     
     std::string strRecord;
-    while (std::getline(configFile, strRecord))
-    {
+    while (std::getline(configFile, strRecord)){
         if (strRecord == "") {
             continue;
         }
@@ -108,77 +99,46 @@ bool CommonTools::parseConf(string strConfPath, DBInfo &mySQLInfo, DBInfo &pgInf
     
     configFile.close();
     
-    if (vecRecord.size() != 16)
-    {
+    if (vecRecord.size() != 16){
         return false;
     }
     
     vector<string>::iterator iter = vecRecord.begin();
-    for (; iter != vecRecord.end(); iter++)
-    {
+    for (; iter != vecRecord.end(); iter++){
         vector<string> vecSplit;
         split(*iter, "=", vecSplit);
-        if(vecSplit.size() == 2)
-        {
+        if(vecSplit.size() == 2){
             if (vecSplit[0] == "pg_host") {
                 pgInfo.strHost = vecSplit[1];
-            }
-            else if(vecSplit[0] == "pg_port")
-            {
+            }else if(vecSplit[0] == "pg_port"){
                 pgInfo.strPort = vecSplit[1];
-            }
-            else if(vecSplit[0] == "pg_user")
-            {
+            }else if(vecSplit[0] == "pg_user"){
                 pgInfo.strUser = vecSplit[1];
-            }
-            else if(vecSplit[0] == "pg_password")
-            {
+            }else if(vecSplit[0] == "pg_password"){
                 pgInfo.strPassword = vecSplit[1];
-            }
-            else if(vecSplit[0] == "pg_database")
-            {
+            }else if(vecSplit[0] == "pg_database"){
                 pgInfo.strDBName = vecSplit[1];
-            }
-            else if (vecSplit[0] == "mysql_host") {
+            }else if (vecSplit[0] == "mysql_host") {
                 mySQLInfo.strHost = vecSplit[1];
-            }
-            else if(vecSplit[0] == "mysql_port")
-            {
+            }else if(vecSplit[0] == "mysql_port"){
                 mySQLInfo.strPort = vecSplit[1];
-            }
-            else if(vecSplit[0] == "mysql_user")
-            {
+            }else if(vecSplit[0] == "mysql_user"){
                 mySQLInfo.strUser = vecSplit[1];
-            }
-            else if(vecSplit[0] == "mysql_password")
-            {
+            }else if(vecSplit[0] == "mysql_password"){
                 mySQLInfo.strPassword = vecSplit[1];
-            }
-            else if(vecSplit[0] == "mysql_database")
-            {
+            }else if(vecSplit[0] == "mysql_database"){
                 mySQLInfo.strDBName = vecSplit[1];
-            }
-            else if (vecSplit[0] == "redis_host") {
+            }else if (vecSplit[0] == "redis_host") {
                 redisInfo.strHost = vecSplit[1];
-            }
-            else if(vecSplit[0] == "redis_port")
-            {
+            }else if(vecSplit[0] == "redis_port"){
                 redisInfo.strPort = vecSplit[1];
-            }
-            else if(vecSplit[0] == "redis_password")
-            {
+            }else if(vecSplit[0] == "redis_password"){
                 redisInfo.strPassword = vecSplit[1];
-            }
-            else if(vecSplit[0] == "traffic_publish_url")
-            {
+            }else if(vecSplit[0] == "traffic_publish_url"){
                 strTrafficPublicURL = vecSplit[1];
-            }
-            else if(vecSplit[0] == "province_list")
-            {
+            }else if(vecSplit[0] == "province_list"){
                 split(vecSplit[1], ",", vecProvince);
-            }
-            else if(vecSplit[0] == "node_type")
-            {
+            }else if(vecSplit[0] == "node_type"){
                 strNodeType = vecSplit[1];
             }
         }
@@ -187,12 +147,10 @@ bool CommonTools::parseConf(string strConfPath, DBInfo &mySQLInfo, DBInfo &pgInf
     return true;;
 }
 
-bool CommonTools::decoderGz(uint8_t *src_data, uint32_t src_length, uint8_t *dest_data, uint32_t &dest_length)
-{
+bool CommonTools::decoderGz(uint8_t *src_data, uint32_t src_length, uint8_t *dest_data, uint32_t &dest_length){
     int err = 0;
     z_stream d_stream = {0};
-    static char dummy_head[2] =
-    {
+    static char dummy_head[2] ={
         0x8 + 0x7 * 0x10,
         (((0x8 + 0x7 * 0x10) * 0x100 + 30) / 31 * 31) & 0xFF,
     };
@@ -225,15 +183,13 @@ bool CommonTools::decoderGz(uint8_t *src_data, uint32_t src_length, uint8_t *des
     return true;
 }
 
-time_t CommonTools::getCurrentTime()
-{
+time_t CommonTools::getCurrentTime(){
     time_t nCurrentTime;
     time(&nCurrentTime);
     return nCurrentTime;
 }
 
-string CommonTools::getCurrentTime_s()
-{
+string CommonTools::getCurrentTime_s(){
     time_t nCurrentTime = getCurrentTime();
     string strCurrentTime = unix2Standard(nCurrentTime);
     return strCurrentTime;
@@ -248,8 +204,7 @@ int CommonTools::getHour(time_t nCurrentTime){
     return atoi(szTime);
 }
 
-int CommonTools::getMinute(time_t nCurrentTime)
-{
+int CommonTools::getMinute(time_t nCurrentTime){
     struct tm newtime;
     localtime_r(&nCurrentTime, &newtime);
     char szTime[100] = { 0 };
@@ -258,8 +213,7 @@ int CommonTools::getMinute(time_t nCurrentTime)
     return atoi(szTime);
 }
 
-int CommonTools::getSecond(time_t nCurrentTime)
-{
+int CommonTools::getSecond(time_t nCurrentTime){
     struct tm newtime;
     localtime_r(&nCurrentTime, &newtime);
     char szTime[100] = { 0 };
@@ -267,22 +221,7 @@ int CommonTools::getSecond(time_t nCurrentTime)
     
     return atoi(szTime);
 }
-
-bool CommonTools::isOddMinute(time_t nCurrentTime)
-{
-    int nMinute = getMinute(nCurrentTime);
-    int nSecond = getSecond(nCurrentTime);
-
-    bool bIsOddMinute = isOddNumber(nMinute);
-    
-    if (bIsOddMinute && nSecond == 0) {
-        return true;
-    }
-    return false;
-}
-
-bool CommonTools::isLaunchProcess(time_t nCurrentTime,int nLaunchMinute)
-{
+bool CommonTools::isLaunchProcess(time_t nCurrentTime,int nLaunchMinute){
     int nMinute = getMinute(nCurrentTime);
     int nSecond = getSecond(nCurrentTime);
     
@@ -293,8 +232,7 @@ bool CommonTools::isLaunchProcess(time_t nCurrentTime,int nLaunchMinute)
     return false;
 }
 
-bool CommonTools::isLaunchProcessEx(time_t nCurrentTime,int nLaunchMinute)
-{
+bool CommonTools::isLaunchProcessEx(time_t nCurrentTime,int nLaunchMinute){
     int nMinute = getMinute(nCurrentTime);
     int nSecond = getSecond(nCurrentTime);
     
@@ -304,13 +242,7 @@ bool CommonTools::isLaunchProcessEx(time_t nCurrentTime,int nLaunchMinute)
     
     return false;
 }
-
-bool CommonTools::isOddNumber(int nNumber) { 
-    return !(nNumber % 2 == 0);
-}
-
-time_t CommonTools::standard2Unix(const char* szTimestamp)
-{
+time_t CommonTools::standard2Unix(const char* szTimestamp){
     struct tm tm;
     memset(&tm, 0, sizeof(tm));
     
@@ -322,32 +254,82 @@ time_t CommonTools::standard2Unix(const char* szTimestamp)
     return mktime(&tm);
 }
 
-std::string CommonTools::toString(int nValue)
-{
-    std::stringstream ss;
-    ss << nValue;
-    return ss.str();
+std::string CommonTools::toString(int nValue){
+    char szValue[128] = {0};
+    sprintf(szValue, "%d",nValue);
+    return szValue;
 }
 
-std::string CommonTools::toString(double dfValue)
-{
-    std::stringstream ss;
-    ss << dfValue;
-    return ss.str();
+std::string CommonTools::toString(double dfValue){
+    char szValue[128] = {0};
+    sprintf(szValue, "%f",dfValue);
+    return szValue;
 }
 
-std::string CommonTools::toString(long long llfValue)
-{
-    std::stringstream ss;
-    ss << llfValue;
-    return ss.str();
+std::string CommonTools::toString(long long llValue){
+    char szValue[128] = {0};
+    sprintf(szValue, "%lld",llValue);
+    return szValue;
+}
+std::string CommonTools::getIP() {
+    string strIP = "";
+    struct ifaddrs * ifAddrStruct=NULL;
+    void * tmpAddrPtr=NULL;
+    
+    getifaddrs(&ifAddrStruct);
+    
+    while (ifAddrStruct!=NULL) {
+        if (ifAddrStruct->ifa_addr->sa_family==AF_INET) { // check it is IP4
+            // is a valid IP4 Address
+            tmpAddrPtr=&((struct sockaddr_in *)ifAddrStruct->ifa_addr)->sin_addr;
+            char addressBuffer[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
+            if (strcmp(addressBuffer, "127.0.0.1") != 0) {
+                strIP = addressBuffer;
+                break;
+            }
+        }
+        ifAddrStruct=ifAddrStruct->ifa_next;
+    }
+    return strIP;
 }
 
-string CommonTools::getHostname(){
-    char szHostname[128] = {0};
-    gethostname(szHostname, sizeof(szHostname));
-    return szHostname;
+size_t CommonTools::writeMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp) { 
+    size_t realsize = size * nmemb;
+    memoryStruct *mem = (memoryStruct *)userp;
+    
+    char *ptr = (char*)realloc(mem->memory, mem->size + realsize + 1);
+    if(ptr == NULL) {
+        /* out of memory! */
+        printf("not enough memory (realloc returned NULL)\n");
+        return 0;
+    }
+    
+    mem->memory = ptr;
+    memcpy(&(mem->memory[mem->size]), contents, realsize);
+    mem->size += realsize;
+    mem->memory[mem->size] = 0;
+    
+    return realsize;
 }
+
+void CommonTools::httpGet(const char *pszURL, memoryStruct *pMemData) { 
+    CURL* pCurl = curl_easy_init();
+    
+    if (pCurl != NULL) {
+        curl_easy_setopt(pCurl, CURLOPT_URL, pszURL);
+        curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L);
+        curl_easy_setopt(pCurl, CURLOPT_TIMEOUT, 300);
+        curl_easy_setopt(pCurl, CURLOPT_NOPROGRESS, 1L);
+        curl_easy_setopt(pCurl, CURLOPT_WRITEFUNCTION, writeMemoryCallback);
+        curl_easy_setopt(pCurl, CURLOPT_WRITEDATA, (void*)pMemData);
+        curl_easy_perform(pCurl);
+        curl_easy_cleanup(pCurl);
+    }
+}
+
+
+
 
 
 

@@ -9,17 +9,16 @@ using namespace std;
 class LogUlits
 {
 public:
-	LogUlits(pthread_mutex_t mutex,string strUUID);
+	LogUlits();
 	~LogUlits();
 private:
-    FILE* m_pFile;
-	pthread_mutex_t m_mutex;
-
-    string m_strUUID;
+    static FILE* m_pFile;
+    static pthread_mutex_t* m_pMutex;
+    static const char* m_pszUUID;
 
 public:
-	bool InitLog(string strLogPath);
+	static bool initLog(const char* pszLogPath,pthread_mutex_t* pMutex,const char* pszUUID);
 
-	void AppendMsg(const char* pszMsg);
+	static void appendMsg(const char* pszMsg);
 };
 

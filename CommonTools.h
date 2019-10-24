@@ -16,6 +16,11 @@
 #include "zlib.h"
 #include <stdint.h>
 #include <memory.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include "curl/curl.h"
+
 using namespace std;
 
 
@@ -27,6 +32,11 @@ typedef struct
     string strPassword;
     string strDBName;
 }DBInfo;
+
+typedef struct {
+    char *memory;
+    size_t size;
+}memoryStruct;
 
 class CommonTools
 {
@@ -41,6 +51,8 @@ public:
     
     static string unix2Standard(time_t nUnix);
     
+    static time_t standard2Unix(const char* szTimestamp);
+    
     static bool parseConf(string strConfPath,DBInfo& mySQLInfo,DBInfo& pgInfo,DBInfo& redisInfo,
                           string& strTrafficPublicURL,vector<string>& vecProvince,string& strNodeType);
     
@@ -52,10 +64,6 @@ public:
     
     static string getCurrentTime_s();
     
-    static bool isOddNumber(int nNumber);
-    
-    static bool isOddMinute(time_t nCurrentTime);
-    
     static bool isLaunchProcess(time_t nCurrentTime,int nLaunchMinute);
     
     static bool isLaunchProcessEx(time_t nCurrentTime,int nLaunchMinute);
@@ -66,14 +74,16 @@ public:
     
     static int getSecond(time_t nCurrentTime);
     
-    static time_t standard2Unix(const char* szTimestamp);
-    
     static string toString(int nValue);
     
     static string toString(double dfValue);
     
-    static string toString(long long llfValue);
+    static string toString(long long llValue);
     
-    static string getHostname();
+    static string getIP();
+    
+    static size_t writeMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp);
+    
+    static void httpGet(const char* pszURL,memoryStruct* pMemData);
 };
 
