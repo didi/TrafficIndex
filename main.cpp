@@ -55,6 +55,7 @@ void *getRealtimeTrafficThread(void *pParam){
     
     vector<string> vecProvince;
     pTrafficIndex->getProvinceList(vecProvince);
+    string strTrafficPublicURL = pTrafficIndex->getTrafficPublicURL();
     
     while (true){
         time_t nCurrentTime = CommonTools::getCurrentTime();
@@ -68,11 +69,9 @@ void *getRealtimeTrafficThread(void *pParam){
             for (size_t i = 0 ; i < vecProvince.size(); i++){
                 ThreadParameter childPara;
                 childPara.nCurrentTime = nCurrentTime;
-                childPara.strCityCode = vecProvince[i];
+                childPara.pszCityCode = vecProvince[i].c_str();
+                childPara.pszTrafficPublicURL = strTrafficPublicURL.c_str();
                 childPara.pTrafficIndex = pTrafficIndex;
-                childPara.strTrafficPublicURL = pTrafficIndex->getTrafficPublicURL();
-                childPara.pMutex = &g_traffic_data_mutex;
-                childPara.pRealtimeTrafficDataCache = pTrafficIndex->getRealtimeTrafficDataCache();
                 
                 pThreadParaArray[i] = childPara;
                 pthread_t pth;
@@ -135,6 +134,12 @@ void *updateWeightAndFreeflowThread(void *pParam){
         sleep(1);
     }
     
+    return NULL;
+}
+
+void *initLinksThread(void *pParam){
+    TrafficIndex* pTrafficIndex = (TrafficIndex*)pParam;
+    pTrafficIndex->getTTILinks();
     return NULL;
 }
 
@@ -296,6 +301,7 @@ int main(int argc, const char * argv[]){
         google::protobuf::ShutdownProtobufLibrary();
         return 1;
     }
+    LogUlits::appendMsg("启动计算线程");
     
     pthread_t trafficThread;
     pthread_create(&trafficThread, NULL, getRealtimeTrafficThread, (void*)pTrafficIndex);
@@ -311,6 +317,10 @@ int main(int argc, const char * argv[]){
     
     pthread_t mqThread;
     pthread_create(&mqThread, NULL, consumeThread, (void*)pTrafficIndex);
+    
+    pthread_t initThread;
+    pthread_create(&initThread, NULL, initLinksThread, pTrafficIndex);
+    pthread_join(initThread, NULL);
 
     if (strNodeType == "master") {
         pthread_t aggreThread;

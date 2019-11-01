@@ -11,10 +11,12 @@ TrafficIndex::TrafficIndex(){
     m_pComputeMySQL = NULL;
     m_pSubscribeMySQL = NULL;
     m_pAggreMySQL = NULL;
+    m_pInitLinksMySQL = NULL;
     
     m_pSubscribePG = NULL;
     m_pUpdateLinkPG = NULL;
     m_pWeightAndFreeflowPG = NULL;
+    m_pInitLinksPG = NULL;
     
     m_pMQRedisConn = NULL;
     m_pLockRedisConn = NULL;
@@ -43,6 +45,11 @@ void TrafficIndex::releaseResource(){
         m_pSubscribeMySQL = NULL;
     }
     
+    if (m_pInitLinksMySQL != NULL){
+        mysql_close(m_pInitLinksMySQL);
+        m_pInitLinksMySQL = NULL;
+    }
+    
     if (m_pWeightAndFreeflowPG != NULL) {
         PQfinish(m_pWeightAndFreeflowPG);
         m_pWeightAndFreeflowPG = NULL;
@@ -56,6 +63,11 @@ void TrafficIndex::releaseResource(){
     if (m_pSubscribePG != NULL) {
         PQfinish(m_pSubscribePG);
         m_pSubscribePG = NULL;
+    }
+    
+    if (m_pInitLinksPG != NULL) {
+        PQfinish(m_pInitLinksPG);
+        m_pInitLinksPG = NULL;
     }
     
     if (m_pMQRedisConn != NULL) {
@@ -171,16 +183,19 @@ bool TrafficIndex::connectDatabase(){
     m_pComputeMySQL = getMySQLConn();
     m_pAggreMySQL = getMySQLConn();
     m_pSubscribeMySQL = getMySQLConn();
+    m_pInitLinksMySQL = getMySQLConn();
     
     m_pWeightAndFreeflowPG = getPGConn();
     m_pUpdateLinkPG = getPGConn();
     m_pSubscribePG = getPGConn();
+    m_pInitLinksPG = getPGConn();
     
     m_pMQRedisConn = getRedisConn();
     m_pLockRedisConn = getRedisConn();
     
     if (m_pUpdateLinkMySQL == NULL || m_pComputeMySQL == NULL || m_pAggreMySQL == NULL || m_pSubscribeMySQL == NULL
-        || m_pWeightAndFreeflowPG == NULL || m_pUpdateLinkPG == NULL || m_pSubscribePG == NULL || m_pMQRedisConn == NULL || m_pLockRedisConn == NULL){
+        || m_pWeightAndFreeflowPG == NULL || m_pUpdateLinkPG == NULL || m_pSubscribePG == NULL
+        || m_pMQRedisConn == NULL || m_pLockRedisConn == NULL || m_pInitLinksMySQL == NULL || m_pInitLinksPG == NULL){
         LogUlits::appendMsg("初始化数据库连接对象失败");
         return false;
     }
@@ -189,10 +204,11 @@ bool TrafficIndex::connectDatabase(){
 }
 
 void TrafficIndex::getTTILinks(){
-//    int nRes = mysql_query(m_pUpdateLinkMySQL, "select obj_id,astext(geom),attibute_filter from traffic_obj_info where city = '济南市' and obj_type in (1,2);");
-    int nRes = mysql_query(m_pUpdateLinkMySQL, "select obj_id,astext(geom),attibute_filter from traffic_obj_info");
+    LogUlits::appendMsg("开始获取link集合");
+//    int nRes = mysql_query(m_pInitLinksMySQL, "select obj_id,astext(geom),attibute_filter from traffic_obj_info where city = '济南市' and obj_type in (1,2);");
+    int nRes = mysql_query(m_pInitLinksMySQL, "select obj_id,astext(geom),attibute_filter from traffic_obj_info");
     if (nRes == 0) {
-        MYSQL_RES* pRes = mysql_store_result(m_pUpdateLinkMySQL);
+        MYSQL_RES* pRes = mysql_store_result(m_pInitLinksMySQL);
         if (pRes != NULL) {
             MYSQL_ROW ppRecord;
             while ((ppRecord = mysql_fetch_row(pRes))){
@@ -203,9 +219,8 @@ void TrafficIndex::getTTILinks(){
                     
                     if (pszObjID != NULL && pszGeom != NULL && pszFilter != NULL) {
                         string strWKT = pszGeom;
-                        vector<string> vecELinkIDs;
                         long long llSize = 0;
-                        long long* pLinkSet = queryELinkID(m_pUpdateLinkPG,strWKT,pszFilter,llSize);
+                        long long* pLinkSet = queryELinkID(m_pInitLinksPG,strWKT,pszFilter,llSize);
                         if (pLinkSet != NULL) {
                             LinkArray* linkArray = new LinkArray;
                             
@@ -213,7 +228,12 @@ void TrafficIndex::getTTILinks(){
                             linkArray->llSize = llSize;
                             
                             if (llSize != 0) {
+                                pthread_mutex_lock(&m_tti_obj_mutex);
                                 m_TTIList[atoi(pszObjID)] = linkArray;
+                                pthread_mutex_unlock(&m_tti_obj_mutex);
+                                char szMsg[128] = {0};
+                                sprintf(szMsg, "obj_id:%s,link总数:%lld",pszObjID,llSize);
+                                LogUlits::appendMsg(szMsg);
                             }
                         }else{
                             char szMsg[512] = {0};
@@ -226,6 +246,7 @@ void TrafficIndex::getTTILinks(){
             mysql_free_result(pRes);
         }
     }
+    LogUlits::appendMsg("获取link集合结束");
 }
 
 long long* TrafficIndex::queryELinkID(PGconn* pConn,string& strWKT,string strFilter,long long& llSize){
@@ -271,9 +292,6 @@ long long* TrafficIndex::queryELinkID(PGconn* pConn,string& strWKT,string strFil
     
     int nRow = PQntuples(pGRes);
     if (nRow == 0) {
-        string strErr = "未获取到link数据,SQL:";
-        strErr += strSQL;
-        LogUlits::appendMsg(strErr.c_str());
         PQclear(pGRes);
         return NULL;
     }
@@ -350,41 +368,43 @@ void TrafficIndex::computeLinkSetTTI(time_t nBatchTime,int nObj_id,LinkArray* pL
         if (pLookupHandle == NULL){
             continue;
         }
-
-        pthread_mutex_lock(&m_traffic_data_mutex);
-
-        vector<trafficInfo>* pVecElement = (vector<trafficInfo>*)m_pRealtimeTrafficDataCache->Value(pLookupHandle);
-        if (pVecElement != NULL) {
-            int nBatchCount = 0;
-            for (int j = 0; j < pVecElement->size(); j++){
-                trafficInfo currentTraffic = pVecElement->at(j);
-                
-                time_t nDiff = nBatchTime - currentTraffic.nBatchTime;
-                
-                if (nDiff >= 600 || nDiff < 0){
-                    continue;
-                }
-                
-                if (currentTraffic.dfSpeed == 0) {
-                    continue;
-                }
-                
-                double dfRealTime = currentTraffic.dfLength / currentTraffic.dfSpeed;
-                
-                dfTTIFenzi += dfRealTime * dfWeight;
-                //dfSpdFenmu += dfRealTime * dfWeight;
-                dfSpdFenmu = dfTTIFenzi;
-                
-                double dfFreeflowTime = currentTraffic.dfLength / dfFreeflow;
-                dfTTIFenmu += dfFreeflowTime * dfWeight;
-                dfSpdFenzi += currentTraffic.dfLength * dfWeight;
-                if (++nBatchCount == 5) {
-                    break;
+        
+        pthread_mutex_lock(&m_TrafficDataMutex);
+        RealtimeTraffic* pRealtimeData = (RealtimeTraffic*)m_pRealtimeTrafficDataCache->Value(pLookupHandle);
+        if (pRealtimeData != NULL) {
+            vector<trafficInfo>* pVecElement = pRealtimeData->pVecElement;
+            if (pVecElement != NULL) {
+                int nBatchCount = 0;
+                for (int j = 0; j < (*pVecElement).size(); j++){
+                    trafficInfo currentTraffic = (*pVecElement)[j];
+                    
+                    time_t nDiff = nBatchTime - currentTraffic.nBatchTime;
+                    
+                    if (nDiff >= 600 || nDiff < 0){
+                        continue;
+                    }
+                    
+                    if (currentTraffic.dfSpeed == 0) {
+                        continue;
+                    }
+                    
+                    double dfRealTime = currentTraffic.dfLength / currentTraffic.dfSpeed;
+                    
+                    dfTTIFenzi += dfRealTime * dfWeight;
+                    //dfSpdFenmu += dfRealTime * dfWeight;
+                    dfSpdFenmu = dfTTIFenzi;
+                    
+                    double dfFreeflowTime = currentTraffic.dfLength / dfFreeflow;
+                    dfTTIFenmu += dfFreeflowTime * dfWeight;
+                    dfSpdFenzi += currentTraffic.dfLength * dfWeight;
+                    if (++nBatchCount == 5) {
+                        break;
+                    }
                 }
             }
         }
-        pthread_mutex_unlock(&m_traffic_data_mutex);
         m_pRealtimeTrafficDataCache->Release(pLookupHandle);
+        pthread_mutex_unlock(&m_TrafficDataMutex);
     }
     
     if (dfTTIFenmu != 0 && dfTTIFenzi != 0){
@@ -395,15 +415,6 @@ void TrafficIndex::computeLinkSetTTI(time_t nBatchTime,int nObj_id,LinkArray* pL
         dfSpd = dfSpdFenzi / dfSpdFenmu;
     }
 }
-
-void deleteRealtimeCache(const leveldb::Slice& key, void* value){
-    vector<trafficInfo>* pVecElement = (vector<trafficInfo>*)value;
-    if (pVecElement != NULL){
-        delete pVecElement;
-        pVecElement = NULL;
-    }
-}
-
 void TrafficIndex::setProvinceList(vector<string>& vecProvince) {
     m_vecProvince = vecProvince;
 }
@@ -433,7 +444,7 @@ void TrafficIndex::setRedisInfo(DBInfo& redisInfo) {
 }
 
 void TrafficIndex::setTrafficDataMutex(pthread_mutex_t& traffic_data_mutex) { 
-    m_traffic_data_mutex = traffic_data_mutex;
+    m_TrafficDataMutex = traffic_data_mutex;
 }
 
 void TrafficIndex::set_tti_obj_mutex(pthread_mutex_t& tti_obj_mutex) {
@@ -450,13 +461,18 @@ void TrafficIndex::getFreeflowAndWeight(string& strELink,double& dfFreeflow,doub
     
     leveldb::Cache::Handle* pHandle = m_pFreeflowAndWeightCache->Lookup(strELink);
     if (pHandle != NULL) {
-        pthread_mutex_lock(&m_update_weight_freeflow_mutex);
-        double* pValues = (double*)m_pFreeflowAndWeightCache->Value(pHandle);
-        if (pValues != NULL) {
-            dfWeight = pValues[0];
-            dfFreeflow = pValues[1];
+        pthread_mutex_lock(&m_UpdatWeightAndFreeflowMutex);
+        
+        WeightAndFreeflow* pWeightAndFreeflow = (WeightAndFreeflow*)m_pFreeflowAndWeightCache->Value(pHandle);
+        if (pWeightAndFreeflow != NULL) {
+            double* pValues = pWeightAndFreeflow->pValues;
+            if (pValues != NULL) {
+                dfWeight = pValues[0];
+                dfFreeflow = pValues[1];
+            }
         }
-        pthread_mutex_unlock(&m_update_weight_freeflow_mutex);
+
+        pthread_mutex_unlock(&m_UpdatWeightAndFreeflowMutex);
         m_pFreeflowAndWeightCache->Release(pHandle);
     }
 }
@@ -588,14 +604,6 @@ bool TrafficIndex::isGetLock(int nObj_id,time_t nBatch_time){
 
     return bIsOK;
 }
-void deleteFreeflowAndWeightCache(const leveldb::Slice& key, void* value){
-    double* pValues = (double*)value;
-    if (pValues != NULL){
-        delete []pValues;
-        pValues = NULL;
-    }
-}
-
 void TrafficIndex::getWeightAndFreeflow(){
     string strSQL = "select elink_id,weight,freeflow from ";
     strSQL += m_strWeightAndFreeflowVersion;
@@ -626,19 +634,27 @@ void TrafficIndex::getWeightAndFreeflow(){
             double* pValues = new double[2];
             pValues[0] = atof(pszWeight);
             pValues[1] = atof(pszFreeflow);
-            leveldb::Cache::Handle* pInsertHandle = m_pFreeflowAndWeightCache->Insert(strELinkID, pValues, 1, deleteFreeflowAndWeightCache);
+            
+            WeightAndFreeflow* pWeightAndFreeflow = new WeightAndFreeflow;
+            pWeightAndFreeflow->pValues = pValues;
+            pWeightAndFreeflow->weightAndFreeflowMutex = m_UpdatWeightAndFreeflowMutex;
+            
+            leveldb::Cache::Handle* pInsertHandle = m_pFreeflowAndWeightCache->Insert(strELinkID, pWeightAndFreeflow, 1, deleteFreeflowAndWeightCache);
             m_pFreeflowAndWeightCache->Release(pInsertHandle);
         }else{
-            pthread_mutex_lock(&m_update_weight_freeflow_mutex);
+            pthread_mutex_lock(&m_UpdatWeightAndFreeflowMutex);
             
-            double* pValues = (double*)m_pFreeflowAndWeightCache->Value(pLookupHandle);
-            if (pValues != NULL) {
-                pValues[0] = atof(pszWeight);
-                pValues[1] = atof(pszFreeflow);
+            WeightAndFreeflow* pWeightAndFreeflow = (WeightAndFreeflow*)m_pFreeflowAndWeightCache->Value(pLookupHandle);
+            if (pWeightAndFreeflow != NULL) {
+                double* pValues = pWeightAndFreeflow->pValues;
+                if (pValues != NULL) {
+                    pValues[0] = atof(pszWeight);
+                    pValues[1] = atof(pszFreeflow);
+                }
             }
 
             m_pFreeflowAndWeightCache->Release(pLookupHandle);
-            pthread_mutex_unlock(&m_update_weight_freeflow_mutex);
+            pthread_mutex_unlock(&m_UpdatWeightAndFreeflowMutex);
         }
     }
     
@@ -731,7 +747,7 @@ void TrafficIndex::updateLink(){
 }
 
 void TrafficIndex::setUpdateWeightAndFreeflowMutex(pthread_mutex_t &update_weight_freeflow_mutex) { 
-    m_update_weight_freeflow_mutex = update_weight_freeflow_mutex;
+    m_UpdatWeightAndFreeflowMutex = update_weight_freeflow_mutex;
 }
 
 void TrafficIndex::aggreTTT(int nType,time_t nCurrentTime){
@@ -978,16 +994,8 @@ bool TrafficIndex::initJob(){
     sprintf(szMsg, "路网版本:%s,自由流版本:%s",m_strLinkVersion.c_str(),m_strWeightAndFreeflowVersion.c_str());
     LogUlits::appendMsg(szMsg);
     
-    redisReply* pReply = (redisReply*)redisCommand(m_pLockRedisConn,"del begin_node end_node");
-    freeReplyObject(pReply);
-    
-    LogUlits::appendMsg("获取TTI计算对象的link集合");
-    getTTILinks();
-    
     LogUlits::appendMsg("获取权重和自由流");
     getWeightAndFreeflow();
-    
-    LogUlits::appendMsg("启动计算线程");
     
     return true;
 }
@@ -1112,10 +1120,10 @@ void TrafficIndex::consumeRedis(){
 void *TrafficIndex::getProvinceRealtimeTrafficThread(void *pParam){
     ThreadParameter threadPara = *(ThreadParameter*)pParam;
     
-    string strCityCode = threadPara.strCityCode;
+    const char* pszCityCode = threadPara.pszCityCode;
     time_t nCurrentTime = threadPara.nCurrentTime;
-    pthread_mutex_t* pMutex = threadPara.pMutex;
-    leveldb::Cache* pRealtimeTrafficDataCache = threadPara.pRealtimeTrafficDataCache;
+    TrafficIndex* pTrafficIndex = threadPara.pTrafficIndex;
+    leveldb::Cache* pRealtimeTrafficDataCache = pTrafficIndex->m_pRealtimeTrafficDataCache;
     
     char szUser_pwd[128] = { 0 };
     string strPassword = "TTI-Calc";
@@ -1132,13 +1140,13 @@ void *TrafficIndex::getProvinceRealtimeTrafficThread(void *pParam){
 #ifdef __APPLE__
     string strURL = "http://traffic.map.xiaojukeji.com/traffic_publish?vid=";
 #else
-    string strURL = threadPara.strTrafficPublicURL;
+    string strURL = threadPara.pszTrafficPublicURL;
     strURL += "/traffic-dlr/getData?vid=";
 #endif
     
     strURL += strMD5;
     strURL += "&citycode=";
-    strURL += strCityCode;
+    strURL += pszCityCode;
     strURL += "&ts=";
     strURL += szTime;
     strURL += "&username=Calc-TTI";
@@ -1156,7 +1164,6 @@ void *TrafficIndex::getProvinceRealtimeTrafficThread(void *pParam){
     free(chunk.memory);
     
     its::service::TrafficData trafficData;
-    
     if (!trafficData.ParseFromArray(szDstBuffer, nDstLength)){
         string strMsg = "解析pb失败,请求地址:";
         strMsg += strURL;
@@ -1213,28 +1220,63 @@ void *TrafficIndex::getProvinceRealtimeTrafficThread(void *pParam){
                 vector<trafficInfo>* pVecElement = new vector<trafficInfo>();
                 pVecElement->push_back(info);
                 
-                leveldb::Cache::Handle* pInsertHandle = pRealtimeTrafficDataCache->Insert(strELinkID, pVecElement, 1, deleteRealtimeCache);
+                RealtimeTraffic* pRealtimeData = new RealtimeTraffic;
+                pRealtimeData->pVecElement = pVecElement;
+                pRealtimeData->trafficDataMutex = pTrafficIndex->m_TrafficDataMutex;
+                
+                leveldb::Cache::Handle* pInsertHandle = pRealtimeTrafficDataCache->Insert(strELinkID, pRealtimeData, 1, deleteRealtimeCache);
                 pRealtimeTrafficDataCache->Release(pInsertHandle);
             }else{
-                pthread_mutex_lock(pMutex);
+                pthread_mutex_lock(&(pTrafficIndex->m_TrafficDataMutex));
                 
-                vector<trafficInfo>* pVecElement = (vector<trafficInfo>*)pRealtimeTrafficDataCache->Value(pLookupHandle);
-                if (pVecElement != NULL) {
-                    if (pVecElement->size() == 8){
-                        vector<trafficInfo>::iterator iter = pVecElement->begin();
-                        pVecElement->erase(iter);
+                RealtimeTraffic* pRealtimeData = (RealtimeTraffic*)pRealtimeTrafficDataCache->Value(pLookupHandle);
+                if (pRealtimeData != NULL) {
+                    vector<trafficInfo>* pVecElement = pRealtimeData->pVecElement;
+                    if (pVecElement != NULL) {
+                        if (pVecElement->size() == 8){
+                            vector<trafficInfo>::iterator iter = pVecElement->begin();
+                            pVecElement->erase(iter);
+                        }
+                        pVecElement->push_back(info);
                     }
-                    pVecElement->push_back(info);
                 }
-                pthread_mutex_unlock(pMutex);
-                
+
                 pRealtimeTrafficDataCache->Release(pLookupHandle);
+                pthread_mutex_unlock(&(pTrafficIndex->m_TrafficDataMutex));
             }
         }
     }
     
     delete []szDstBuffer;
     return NULL;
+}
+void TrafficIndex::deleteRealtimeCache(const leveldb::Slice& key, void* value){
+    RealtimeTraffic* pRealtimeData = (RealtimeTraffic*)value;
+    if (pRealtimeData != NULL) {
+        pthread_mutex_lock(&(pRealtimeData->trafficDataMutex));
+        vector<trafficInfo>* pVecElement = pRealtimeData->pVecElement;
+        if (pVecElement != NULL) {
+            delete pVecElement;
+            pVecElement = NULL;
+        }
+        pthread_mutex_unlock(&(pRealtimeData->trafficDataMutex));
+        delete pRealtimeData;
+        pRealtimeData = NULL;
+    }
+}
+void TrafficIndex::deleteFreeflowAndWeightCache(const leveldb::Slice& key, void* value){
+    WeightAndFreeflow* pWeightAndFreeflow = (WeightAndFreeflow*)value;
+    if (pWeightAndFreeflow != NULL) {
+        pthread_mutex_lock(&(pWeightAndFreeflow->weightAndFreeflowMutex));
+        double* pValues = pWeightAndFreeflow->pValues;
+        if (pValues != NULL){
+            delete []pValues;
+            pValues = NULL;
+        }
+        pthread_mutex_unlock(&(pWeightAndFreeflow->weightAndFreeflowMutex));
+        delete pWeightAndFreeflow;
+        pWeightAndFreeflow = NULL;
+    }
 }
 leveldb::Cache* TrafficIndex::getRealtimeTrafficDataCache(){
     return m_pRealtimeTrafficDataCache;

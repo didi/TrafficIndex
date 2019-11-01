@@ -46,6 +46,34 @@ struct LinkArray{
     }
 };
 
+struct RealtimeTraffic{
+    vector<trafficInfo>* pVecElement;
+    pthread_mutex_t trafficDataMutex;
+    
+    RealtimeTraffic(){
+        memset(this,0,sizeof(RealtimeTraffic));
+    }
+};
+
+struct WeightAndFreeflow{
+    double* pValues;
+    pthread_mutex_t weightAndFreeflowMutex;
+    
+    WeightAndFreeflow(){
+        memset(this,0,sizeof(WeightAndFreeflow));
+    }
+};
+struct ThreadParameter{
+    const char* pszCityCode;
+    time_t nCurrentTime;
+    const char* pszTrafficPublicURL;
+    class TrafficIndex* pTrafficIndex;
+    
+    ThreadParameter(){
+        memset(this,0,sizeof(ThreadParameter));
+    }
+};
+
 class TrafficIndex{
 public:
     TrafficIndex();
@@ -100,7 +128,13 @@ public:
     
     static void *getProvinceRealtimeTrafficThread(void *pParam);
     
+    static void deleteRealtimeCache(const leveldb::Slice& key, void* value);
+    
+    static void deleteFreeflowAndWeightCache(const leveldb::Slice& key, void* value);
+    
     leveldb::Cache* getRealtimeTrafficDataCache();
+    
+    void getTTILinks();
 private:
     long long* queryELinkID(PGconn* pConn,string& strWKT,string strFilter,long long& llSize);
         
@@ -110,8 +144,6 @@ private:
     
     void getFreeflowAndWeight(string& strELink,double& dfFreeflow,double& dfWeight);
     
-    void getTTILinks();
-    
     string getFeatureVersion(string strFeatureType,PGconn* pConn);
     
     void getWeightAndFreeflow();
@@ -120,10 +152,12 @@ private:
     MYSQL* m_pUpdateLinkMySQL;
     MYSQL* m_pSubscribeMySQL;
     MYSQL* m_pAggreMySQL;
+    MYSQL* m_pInitLinksMySQL;
 
     PGconn* m_pUpdateLinkPG;
     PGconn* m_pWeightAndFreeflowPG;
     PGconn* m_pSubscribePG;
+    PGconn* m_pInitLinksPG;
 
     redisContext* m_pMQRedisConn;
     redisContext* m_pLockRedisConn;
@@ -133,23 +167,16 @@ private:
     DBInfo m_redisInfo;
     vector<string> m_vecProvince;
     string m_strTrafficPublicURL;
-    pthread_mutex_t m_traffic_data_mutex;
-    pthread_mutex_t m_tti_obj_mutex;
-    pthread_mutex_t m_update_weight_freeflow_mutex;
-    map<int,LinkArray*> m_TTIList;
     string m_strLinkVersion;
     string m_strWeightAndFreeflowVersion;
     
+    pthread_mutex_t m_tti_obj_mutex;
+    pthread_mutex_t m_UpdatWeightAndFreeflowMutex;
+    map<int,LinkArray*> m_TTIList;
+
     leveldb::Cache* m_pFreeflowAndWeightCache;
+    
+public:
+    pthread_mutex_t m_TrafficDataMutex;
     leveldb::Cache* m_pRealtimeTrafficDataCache;
 };
-
-typedef struct
-{
-    string strCityCode;
-    time_t nCurrentTime;
-    TrafficIndex* pTrafficIndex;
-    string strTrafficPublicURL;
-    pthread_mutex_t* pMutex;
-    leveldb::Cache* pRealtimeTrafficDataCache;
-}ThreadParameter;
