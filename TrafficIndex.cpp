@@ -339,7 +339,6 @@ long long* TrafficIndex::queryELinkID(PGconn* pConn,string& strWKT,string strFil
             }
         }
     }
-    
     PQclear(pGRes);
     return pLinkArray;
 }
@@ -471,9 +470,9 @@ void TrafficIndex::getFreeflowAndWeight(string& strELink,double& dfFreeflow,doub
                 dfFreeflow = pValues[1];
             }
         }
-
-        pthread_mutex_unlock(&m_UpdatWeightAndFreeflowMutex);
+        
         m_pFreeflowAndWeightCache->Release(pHandle);
+        pthread_mutex_unlock(&m_UpdatWeightAndFreeflowMutex);
     }
 }
 
@@ -639,7 +638,7 @@ void TrafficIndex::getWeightAndFreeflow(){
             pWeightAndFreeflow->pValues = pValues;
             pWeightAndFreeflow->weightAndFreeflowMutex = m_UpdatWeightAndFreeflowMutex;
             
-            leveldb::Cache::Handle* pInsertHandle = m_pFreeflowAndWeightCache->Insert(strELinkID, pWeightAndFreeflow, 1, deleteFreeflowAndWeightCache);
+            leveldb::Cache::Handle* pInsertHandle = m_pFreeflowAndWeightCache->Insert(strELinkID, pWeightAndFreeflow, 1, &TrafficIndex::deleteFreeflowAndWeightCache);
             m_pFreeflowAndWeightCache->Release(pInsertHandle);
         }else{
             pthread_mutex_lock(&m_UpdatWeightAndFreeflowMutex);
@@ -1059,7 +1058,7 @@ void TrafficIndex::add_tti_object(string& strObjID){
                     if (pszObjID != NULL && pszGeom != NULL && pszFilter != NULL) {
                         string strWKT = pszGeom;
                         long long llSize = 0;
-                        long long* pLinkSet = queryELinkID(m_pUpdateLinkPG,strWKT,pszFilter,llSize);
+                        long long* pLinkSet = queryELinkID(m_pSubscribePG,strWKT,pszFilter,llSize);
                         if (pLinkSet != NULL) {
                             LinkArray* pLinkArray = new LinkArray;
                             
@@ -1207,7 +1206,7 @@ void *TrafficIndex::getProvinceRealtimeTrafficThread(void *pParam){
             trafficInfo info;
             info.dfLength = (double)nLength / 1000.0;
             info.strELinkID = strELinkID;
-            info.nConfidence = nConfidence;
+//            info.nConfidence = nConfidence;
             
 #ifdef __APPLE__
             info.strBatchTime = strBatchTime;
@@ -1224,7 +1223,7 @@ void *TrafficIndex::getProvinceRealtimeTrafficThread(void *pParam){
                 pRealtimeData->pVecElement = pVecElement;
                 pRealtimeData->trafficDataMutex = pTrafficIndex->m_TrafficDataMutex;
                 
-                leveldb::Cache::Handle* pInsertHandle = pRealtimeTrafficDataCache->Insert(strELinkID, pRealtimeData, 1, deleteRealtimeCache);
+                leveldb::Cache::Handle* pInsertHandle = pRealtimeTrafficDataCache->Insert(strELinkID, pRealtimeData, 1, &TrafficIndex::deleteRealtimeCache);
                 pRealtimeTrafficDataCache->Release(pInsertHandle);
             }else{
                 pthread_mutex_lock(&(pTrafficIndex->m_TrafficDataMutex));
