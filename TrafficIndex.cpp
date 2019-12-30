@@ -413,6 +413,7 @@ void TrafficIndex::computeLinkSetTTI(time_t nBatchTime,int nObj_id,LinkArray* pL
     if (dfSpdFenzi != 0 && dfSpdFenmu != 0){
         dfSpd = dfSpdFenzi / dfSpdFenmu;
     }
+    dfTTI = dfTTI > 40 ? 40 : dfTTI;
 }
 void TrafficIndex::setProvinceList(vector<string>& vecProvince) {
     m_vecProvince = vecProvince;
